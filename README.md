@@ -69,5 +69,6 @@ Compiling bar
 
 ## TODO
 
+- add documentation in source code
 - implement [planned features](#planned-features)
 - include GIF demo in README
