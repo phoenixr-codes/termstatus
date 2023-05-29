@@ -4,6 +4,41 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, parse_quote, ItemEnum};
 
+/// Turns an `enum` into an Terminal Status.
+///
+/// This will implement [Display](std::fmt::Display) which pads the name of the
+/// variant by prefixing it with spaces so that each label ends at the same
+/// column in the terminal.
+///
+/// # Example
+///
+/// ```rust
+/// use termstatus::TermStatus;
+///
+/// #[derive(TermStatus)]
+/// pub enum Status {
+///     Building,
+///     Built,
+///     Finished,
+///     Running,
+/// }
+///
+/// fn main() {
+///     println!("{} foo", Status::Building);
+///     println!("{} foo", Status::Built);
+///     println!("{} bar", Status::Running);
+///     println!("{} bar", Status::Finished);
+/// }
+/// ```
+///
+/// Running this will display the following in the terminal:
+///
+/// ```text
+/// Building foo
+///    Built foo
+///  Running bar
+/// Finished bar
+/// ```
 #[proc_macro_derive(TermStatus)]
 pub fn generate_format(input: TokenStream) -> TokenStream {
     // Get the `enum` input as a token stream
