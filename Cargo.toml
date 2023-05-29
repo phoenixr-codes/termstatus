@@ -1,0 +1,27 @@
+[package]
+name = "termstatus"
+version = "0.1.0"
+authors = ["Jonas da Silva"]
+edition = "2021"
+description = "Show the status of your program."
+repository = "https://github.com/phoenixr-codes/termstatus"
+license-file = "LICENSE"
+keywords = [
+  "console",
+  "informative",
+  "log",
+  "status",
+  "terminal",
+]
+categories = [
+  "development-tools",
+  "visualization",
+]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.28"
+syn = {version = "2.0.18", features = ["full"]}
+
