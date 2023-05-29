@@ -1,6 +1,8 @@
 // TODO: support #[display("foo")] attribute on variant
 // TODO: support #[color("green")] attribute on variant
 
+#![doc = include_str!("../README.md")]
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, parse_quote, ItemEnum};
