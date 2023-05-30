@@ -13,7 +13,7 @@ Cargo.toml:
 
 ```toml
 [dependencies]
-termstatus = "0.1"
+termstatus = "0.2"
 ```
 
 
