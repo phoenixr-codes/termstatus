@@ -10,6 +10,10 @@ use syn::{parse_macro_input, parse_quote};
 /// variant by prefixing it with spaces so that each label ends at the same
 /// column in the terminal.
 ///
+/// The name of the label can be changed by giving the `enum` variant an
+/// attribute of the form `#[display = "Other Name"]`. This will override
+/// the label when displaying it.
+///
 /// # Example
 ///
 /// ```rust
@@ -19,6 +23,8 @@ use syn::{parse_macro_input, parse_quote};
 /// pub enum Status {
 ///     Building,
 ///     Built,
+///     #[display = "Cleaning Up"]
+///     CleaningUp,
 ///     Finished,
 ///     Running,
 /// }
@@ -28,16 +34,18 @@ use syn::{parse_macro_input, parse_quote};
 ///     println!("{} foo", Status::Built);
 ///     println!("{} bar", Status::Running);
 ///     println!("{} bar", Status::Finished);
+///     println!("{} baz", Status::CleaningUp);
 /// }
 /// ```
 ///
 /// Running this will display the following in the terminal:
 ///
 /// ```text
-/// Building foo
-///    Built foo
-///  Running bar
-/// Finished bar
+///    Building foo
+///       Built foo
+///     Running bar
+///    Finished bar
+/// Cleaning Up baz
 /// ```
 #[proc_macro_derive(TermStatus, attributes(display, style))]
 pub fn generate_format(input: TokenStream) -> TokenStream {
