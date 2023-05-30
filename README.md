@@ -65,7 +65,8 @@ Compiling bar
 
 ## Planned Features
 
-- use of `#[default_style(on_aqua, italic)]` on the derived `enum`
+- use of `#[default_style(on_cyan, italic)]` on the derived `enum`
+- support of bright colors
 
 
 ## TODO
