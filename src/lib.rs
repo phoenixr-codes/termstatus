@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, ItemEnum};
+use syn::{parse_macro_input, parse_quote};
 
 /// Turns an `enum` into an Terminal Status.
 ///
@@ -39,10 +39,10 @@ use syn::{parse_macro_input, parse_quote, ItemEnum};
 ///  Running bar
 /// Finished bar
 /// ```
-#[proc_macro_derive(TermStatus)]
+#[proc_macro_derive(TermStatus, attributes(display, style))]
 pub fn generate_format(input: TokenStream) -> TokenStream {
     // Get the `enum` input as a token stream
-    let input = parse_macro_input!(input as ItemEnum);
+    let input = parse_macro_input!(input as syn::ItemEnum);
 
     // Save the name of the enum
     let ident = input.ident.clone();
@@ -54,14 +54,54 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
     let mut match_arms: Vec<syn::Arm> = Vec::new();
     for variant in &input.variants {
         let name = variant.ident.to_string();
-        let length = name.len();
+        let mut display = name.clone();
+
+        // Parse attributes of variant
+        for attr in &variant.attrs {
+            match attr.style {
+                syn::AttrStyle::Inner(_) => panic!("Expeced outer attribute, got inner attribute"),
+                syn::AttrStyle::Outer => match &attr.meta {
+                    syn::Meta::Path(_) => panic!(
+                        r#"Expected attribute of form `#[style(blue, bold)]` or `#[display = "Other Label"]`, got one of form `#[unknown]`"#
+                    ),
+                    syn::Meta::List(l) => {
+                        // #[style(red, bold)]
+                        todo!();
+                    }
+                    syn::Meta::NameValue(nv) => {
+                        // #[display = "Other Label"]
+                        if nv.path.leading_colon.is_some() {
+                            panic!("Unexpected leading `::`");
+                        };
+
+                        let attr_name = nv.path.segments.first().unwrap().ident.to_string();
+                        if nv.path.segments.len() > 1 || attr_name != "display" {
+                            panic!("Expected 'display', got '{}'", attr_name);
+                        };
+
+                        match &nv.value {
+                            syn::Expr::Lit(syn::ExprLit {
+                                attrs: _,
+                                lit: syn::Lit::Str(s),
+                            }) => {
+                                display = s.value();
+                            }
+                            _ => panic!("Expected string literal"),
+                        };
+                    }
+                },
+            };
+        }
+
+        let length = display.len();
         if length > max_len {
             max_len = length;
         };
 
-        let variant_ident = variant.ident.clone();
+        let variant_ident = &variant.ident;
+        // TODO: can we use quote::quote instead?
         match_arms.push(parse_quote! {
-            #ident::#variant => stringify!(#variant_ident)
+            #ident::#variant_ident => #display
         })
     }
 
@@ -72,7 +112,7 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
                 let name = match self { #(#match_arms),* };
                 let pad = " ".repeat(#max_len - name.len());
 
-                let mut padded = String::new();
+                let mut padded = std::string::String::new();
                 padded.push_str(pad.as_str());
                 padded.push_str(name);
 
