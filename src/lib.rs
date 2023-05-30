@@ -157,7 +157,7 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
                                 "hidden" => "\x1b[8m",
                                 "strikethrough" => "\x1b[9m",
 
-                                &_ => panic("Unknown style identifier"),
+                                &_ => panic!("Unknown style identifier"),
                             };
                             let mut styled = String::from(ansi);
                             let reset = "\x1b[0m";
