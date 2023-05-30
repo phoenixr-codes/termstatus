@@ -33,6 +33,8 @@ enum Status {
     Built,
     Compiled,
     Compiling,
+    #[style(red, bold)]
+    Error,
     Finished,
     Running,
 }
@@ -63,8 +65,7 @@ Compiling bar
 
 ## Planned Features
 
-- use of `#[style(red, bold, on_aqua)]`
-- use of `#[display("A name that may be an illegal enum variant name")]`
+- use of `#[default_style(on_aqua, italic)]` on the derived `enum`
 
 
 ## TODO

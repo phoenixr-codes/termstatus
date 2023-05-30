@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote};
+use syn::{parse_macro_input, parse_quote, punctuated::Punctuated};
 
 /// Turns an `enum` into an Terminal Status.
 ///
@@ -13,6 +13,9 @@ use syn::{parse_macro_input, parse_quote};
 /// The name of the label can be changed by giving the `enum` variant an
 /// attribute of the form `#[display = "Other Name"]`. This will override
 /// the label when displaying it.
+///
+/// The style such as the color may be modified with an attribute of the form
+/// `#[style(red, on_yellow)]`.
 ///
 /// # Example
 ///
@@ -25,7 +28,9 @@ use syn::{parse_macro_input, parse_quote};
 ///     Built,
 ///     #[display = "Cleaning Up"]
 ///     CleaningUp,
+///     #[style(green, bold)]
 ///     Finished,
+///     #[style(on_green, bold)]
 ///     Running,
 /// }
 ///
@@ -38,7 +43,8 @@ use syn::{parse_macro_input, parse_quote};
 /// }
 /// ```
 ///
-/// Running this will display the following in the terminal:
+/// Running this will display the following in the terminal (without styles
+/// because this is a Markdown document, not a terminal):
 ///
 /// ```text
 ///    Building foo
@@ -47,6 +53,34 @@ use syn::{parse_macro_input, parse_quote};
 ///    Finished bar
 /// Cleaning Up baz
 /// ```
+///
+/// # Available Style Identifiers
+///
+/// - `on_black`
+/// - `on_red`
+/// - `on_green`
+/// - `on_yellow`
+/// - `on_blue`
+/// - `on_magenta`
+/// - `on_cyan`
+/// - `on_white`
+/// - `black`
+/// - `red`
+/// - `green`
+/// - `yellow`
+/// - `blue`
+/// - `magenta`
+/// - `cyan`
+/// - `white`
+/// - `bold`
+/// - `dim`
+/// - `italic`
+/// - `underlined`
+/// - `blink`
+/// - `blinkfast`
+/// - `reverse`
+/// - `hidden`
+/// - `strikethrough`
 #[proc_macro_derive(TermStatus, attributes(display, style))]
 pub fn generate_format(input: TokenStream) -> TokenStream {
     // Get the `enum` input as a token stream
@@ -63,6 +97,7 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
     for variant in &input.variants {
         let name = variant.ident.to_string();
         let mut display = name.clone();
+        let mut garbage = 0; // amounnt of invisible characters
 
         // Parse attributes of variant
         for attr in &variant.attrs {
@@ -72,9 +107,65 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
                     syn::Meta::Path(_) => panic!(
                         r#"Expected attribute of form `#[style(blue, bold)]` or `#[display = "Other Label"]`, got one of form `#[unknown]`"#
                     ),
+                    // TODO: it might be possible to remove checks, due to the
+                    //       `attributes` argument in the function attribute
+                    // TODO: put checks together
                     syn::Meta::List(l) => {
                         // #[style(red, bold)]
-                        todo!();
+                        if l.path.leading_colon.is_some() {
+                            panic!("Unexpected leading `::`");
+                        };
+
+                        let attr_name = l.path.segments.first().unwrap().ident.to_string();
+                        if l.path.segments.len() > 1 || attr_name != "style" {
+                            panic!("Expected 'style', got '{}'", attr_name);
+                        };
+
+                        let args: Punctuated<syn::Ident, syn::Token![,]> = l
+                            .parse_args_with(Punctuated::parse_terminated)
+                            .expect("Invalid attribute syntax");
+
+                        for arg in args {
+                            let style_name = arg.to_string();
+                            // TODO: we can do better
+                            let ansi = match style_name.as_str() {
+                                "black" => "\x1b[30m",
+                                "red" => "\x1b[31m",
+                                "green" => "\x1b[32m",
+                                "yellow" => "\x1b[33m",
+                                "blue" => "\x1b[34m",
+                                "magenta" => "\x1b[35m",
+                                "cyan" => "\x1b[36m",
+                                "white" => "\x1b[37m",
+
+                                "on_black" => "\x1b[40m",
+                                "on_red" => "\x1b[41m",
+                                "on_green" => "\x1b[42m",
+                                "on_yellow" => "\x1b[43m",
+                                "on_blue" => "\x1b[44m",
+                                "on_magenta" => "\x1b[45m",
+                                "on_cyan" => "\x1b[46m",
+                                "on_white" => "\x1b[47m",
+
+                                "bold" => "\x1b[1m",
+                                "dim" => "\x1b[2m",
+                                "italic" => "\x1b[3m",
+                                "underlined" => "\x1b[4m",
+                                "blink" => "\x1b[5m",
+                                "blinkfast" => "\x1b[6m",
+                                "reverse" => "\x1b[7m",
+                                "hidden" => "\x1b[8m",
+                                "strikethrough" => "\x1b[9m",
+
+                                &_ => panic("Unknown style identifier"),
+                            };
+                            let mut styled = String::from(ansi);
+                            let reset = "\x1b[0m";
+                            garbage += styled.chars().count() + reset.chars().count();
+                            styled.push_str(&display);
+                            styled.push_str(reset);
+                            display = styled;
+                        }
                     }
                     syn::Meta::NameValue(nv) => {
                         // #[display = "Other Label"]
@@ -101,7 +192,7 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
             };
         }
 
-        let length = display.len();
+        let length = display.chars().count() - garbage;
         if length > max_len {
             max_len = length;
         };
@@ -109,7 +200,7 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
         let variant_ident = &variant.ident;
         // TODO: can we use quote::quote instead?
         match_arms.push(parse_quote! {
-            #ident::#variant_ident => #display
+            #ident::#variant_ident => (#display, #length)
         })
     }
 
@@ -117,8 +208,8 @@ pub fn generate_format(input: TokenStream) -> TokenStream {
     quote! {
         impl std::fmt::Display for #ident {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let name = match self { #(#match_arms),* };
-                let pad = " ".repeat(#max_len - name.len());
+                let (name, real_len) = match self { #(#match_arms),* };
+                let pad = " ".repeat(#max_len - real_len);
 
                 let mut padded = std::string::String::new();
                 padded.push_str(pad.as_str());
